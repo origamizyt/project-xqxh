@@ -3,7 +3,11 @@
 import cv2.cv2 as cv2, base64, face_recognition, json
 from io import BytesIO
 import numpy as np
-from database import *
+from database import (
+    get_user_datas,
+    get_user_face,
+    store_user_face
+)
 
 ERR_ERROR = 0
 ERR_NO_FACE = 1
