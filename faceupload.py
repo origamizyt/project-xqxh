@@ -1,6 +1,6 @@
 # faceupload.py
 
-import cv2, base64, face_recognition, json
+import cv2.cv2 as cv2, base64, face_recognition, json
 from io import BytesIO
 import numpy as np
 from database import *
