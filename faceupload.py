@@ -97,11 +97,9 @@ if __name__ == '__main__':
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
-            #small_frame = cv2.resize(frame, (0, 0), fx=SCALE, fy=SCALE)
             face = find_single_face(frame)
             if face is not None:
                 t, r, b, l = face
-                #t/=SCALE; r/=SCALE; b/=SCALE; l/=SCALE
                 frame = cv2.rectangle(frame, (l, t), (r, b), (255, 0, 0), 2)
             cv2.imshow('face', frame)
             if cv2.waitKey(1) == 27: break
@@ -115,10 +113,8 @@ if __name__ == '__main__':
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
-            #small_frame = cv2.resize(frame, (0, 0), fx=SCALE, fy=SCALE)
             for face in find_faces(frame):
                 t, r, b, l = face
-                #t/=SCALE; r/=SCALE; b/=SCALE; l/=SCALE
                 new_face = face_recognition.face_encodings(frame)[0]
                 index = face_match(new_face, models)
                 if index != -1:
