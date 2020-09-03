@@ -6,7 +6,8 @@ import numpy as np
 from database import (
     get_user_datas,
     get_user_face,
-    store_user_face
+    store_user_face,
+    remove_user_data
 )
 
 ERR_ERROR = 0
@@ -91,7 +92,7 @@ def find_faces(image):
     return face_recognition.face_locations(image)
 
 if __name__ == '__main__':
-    op = input("Store or Detect (s/d): ").strip().lower()
+    op = input("Store/Detect/Remove (s/d/r): ").strip().lower()
     if op == 's':
         uid = int(input("User Id: "))
         cam = cv2.VideoCapture(0)
@@ -127,3 +128,6 @@ if __name__ == '__main__':
             if cv2.waitKey(1) == 27: break
         cv2.destroyAllWindows()
         cam.release()
+    elif op == 'r':
+        uid = int(input("User Id: "))
+        remove_user_data(uid)
