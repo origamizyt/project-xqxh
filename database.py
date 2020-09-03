@@ -27,3 +27,8 @@ def get_user_datas():
     result = db.faces.find()
     result = map(lambda doc: (doc['user_id'], doc['face_data']), result)
     return list(result)
+
+def remove_user_data(user_id):
+    client = get_mongo_client()
+    db = client.get_database('campusnav')
+    db.faces.remove({ 'user_id': user_id })
