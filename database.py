@@ -38,6 +38,7 @@ def remove_user_data(user_id):
     db.faces.remove({ 'user_id': user_id })
 
 def close_current_client():
+    global client
     if client != None:
         client.close()
         client = None
