@@ -7,7 +7,8 @@ from database import (
     get_user_datas,
     get_user_face,
     store_user_face,
-    remove_user_data
+    remove_user_data,
+    close_current_client
 )
 
 ERR_ERROR = 0
@@ -131,3 +132,4 @@ if __name__ == '__main__':
     elif op == 'r':
         uid = int(input("User Id: "))
         remove_user_data(uid)
+    close_current_client()
