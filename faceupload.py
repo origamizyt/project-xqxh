@@ -1,15 +1,10 @@
 # faceupload.py
 
-import cv2.cv2 as cv2, base64, face_recognition, json
+import cv2.cv2 as cv2, base64, face_recognition, json, sys
 from io import BytesIO
 import numpy as np
-from database import (
-    get_user_datas,
-    get_user_face,
-    store_user_face,
-    remove_user_data,
-    close_current_client
-)
+import database as db
+from models import User
 
 ERR_ERROR = 0
 ERR_NO_FACE = 1
@@ -46,21 +41,23 @@ def upload_internal(data):
 def save_model(user_id, model):
     b = BytesIO()
     np.save(b, model)
-    store_user_face(user_id, encode_base64(b.getvalue()).decode('iso-8859-1'))
+    db.store_user_face(user_id, encode_base64(b.getvalue()).decode('iso-8859-1'))
 
 def load_model(user_id):
-    face_data = decode_base64(get_user_face(user_id).encode('iso-8859-1'))
+    face_data = decode_base64(db.get_user_face(user_id).encode('iso-8859-1'))
     b = BytesIO(face_data)
     return np.load(b)
 
 def load_models():
     ids = []
     models = []
-    for user_id, model in get_user_datas():
+    usernames = []
+    for user_id, model in db.get_user_datas():
         ids.append(user_id)
         b = BytesIO(decode_base64(model.encode('iso-8859-1')))
         models.append(np.load(b))
-    return ids, models
+        usernames.append(None)
+    return ids, models, usernames
 
 def face_match(new_face, models):
     result = face_recognition.compare_faces(models, new_face, DISTANCE_THRESHOLD)
@@ -95,7 +92,9 @@ def find_faces(image):
 if __name__ == '__main__':
     op = input("Store/Detect/Remove (s/d/r): ").strip().lower()
     if op == 's':
-        uid = int(input("User Id: "))
+        username = input("Username: ")
+        uid = db.register_user(User(username))
+        print("Your user id is:", uid)
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
@@ -111,7 +110,7 @@ if __name__ == '__main__':
         fd = FaceData(uid, bframe)
         print(upload_internal(fd).toJson())
     elif op == 'd':
-        ids, models = load_models()
+        ids, models, usernames = load_models()
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
@@ -122,7 +121,11 @@ if __name__ == '__main__':
                 if index != -1:
                     frame = cv2.rectangle(frame, (l, t), (r, b), (0, 255, 0), 2)
                     uid = ids[index]
-                    frame = cv2.putText(frame, f'User Id: {uid}', (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
+                    username = usernames[index]
+                    if username == None:
+                        username = usernames[index] = db.get_user(uid).username
+                    frame = cv2.putText(frame, f'User Id: {uid}', (l, (t-30 if t>30 else t+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
+                    frame = cv2.putText(frame, f'User Name: {username}', (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
                 else:
                     frame = cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 2)
             cv2.imshow('tolerance=' + str(DISTANCE_THRESHOLD), frame)
@@ -131,5 +134,7 @@ if __name__ == '__main__':
         cam.release()
     elif op == 'r':
         uid = int(input("User Id: "))
-        remove_user_data(uid)
-    close_current_client()
+        db.remove_user_data(uid)
+        db.remove_user(uid)
+    db.close_current_mongo_client()
+    db.close_current_mysql_client()
