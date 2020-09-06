@@ -25,3 +25,9 @@ Repository: https://github.com/origamizyt/project-xqxh.git
 - 文件名: database.py
 - 文件类型: Python 文件 (.py)
 - 描述: 负责后台数据库操作的模块
+
+### `models.py`
+
+- 文件名: models.py
+- 文件类型: Python 文件 (.py)
+- 描述: 定义接口中使用的对象模型
