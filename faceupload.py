@@ -90,7 +90,7 @@ def find_faces(image):
     return face_recognition.face_locations(image)
 
 if __name__ == '__main__':
-    op = input("Store/Detect/Remove (s/d/r): ").strip().lower()
+    op = input("Store/Detect/Remove/Query (s/d/r/q): ").strip().lower()
     if op == 's':
         username = input("Username: ")
         uid = db.register_user(User(username))
@@ -136,5 +136,12 @@ if __name__ == '__main__':
         uid = int(input("User Id: "))
         db.remove_user_data(uid)
         db.remove_user(uid)
+    elif op == 'q':
+        uid = int(input("User Id: "))
+        if db.user_exists(uid):
+            user = db.get_user(uid)
+            print("User Name:", user.username)
+        else:
+            print("User does not exist.")
     db.close_current_mongo_client()
     db.close_current_mysql_client()
