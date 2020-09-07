@@ -60,10 +60,11 @@ def load_models():
     return ids, models, usernames
 
 def face_match(new_face, models):
-    result = face_recognition.compare_faces(models, new_face, DISTANCE_THRESHOLD)
-    if any(result):
-        return result.index(True)
-    else: return -1
+    result = face_recognition.face_distance(models, new_face)
+    index = np.argmin(result)
+    if result[index] > DISTANCE_THRESHOLD:
+        return -1, None
+    return index, result[index]
 
 def decode_base64(data):
     return base64.b64decode(data)
@@ -117,15 +118,16 @@ if __name__ == '__main__':
             for face in find_faces(frame):
                 t, r, b, l = face
                 new_face = face_recognition.face_encodings(frame)[0]
-                index = face_match(new_face, models)
-                if index != -1:
+                index, distance = face_match(new_face, models)
+                if index >= 0:
                     frame = cv2.rectangle(frame, (l, t), (r, b), (0, 255, 0), 2)
                     uid = ids[index]
                     username = usernames[index]
                     if username == None:
                         username = usernames[index] = db.get_user(uid).username
-                    frame = cv2.putText(frame, f'User Id: {uid}', (l, (t-30 if t>30 else t+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
-                    frame = cv2.putText(frame, f'User Name: {username}', (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 2)
+                    frame = cv2.putText(frame, f'User Id: {uid}', (l, (t-50 if t>50 else t+50)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, f'User Name: {username}', (l, (t-30 if t>30 else t+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, 'Similarity: %.5f%%' % ((1-distance)*100), (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
                 else:
                     frame = cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 2)
             cv2.imshow('tolerance=' + str(DISTANCE_THRESHOLD), frame)
