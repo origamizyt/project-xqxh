@@ -51,13 +51,11 @@ def load_model(user_id):
 def load_models():
     ids = []
     models = []
-    usernames = []
     for user_id, model in db.get_user_datas():
         ids.append(user_id)
         b = BytesIO(decode_base64(model.encode('iso-8859-1')))
         models.append(np.load(b))
-        usernames.append(None)
-    return ids, models, usernames
+    return ids, models
 
 def face_match(new_face, models):
     result = face_recognition.face_distance(models, new_face)
@@ -111,7 +109,8 @@ if __name__ == '__main__':
         fd = FaceData(uid, bframe)
         print(upload_internal(fd).toJson())
     elif op == 'd':
-        ids, models, usernames = load_models()
+        ids, models = load_models()
+        usernames = [None] * len(ids)
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
