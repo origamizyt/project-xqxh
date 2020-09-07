@@ -2,13 +2,13 @@
 
 import pymongo
 import mysql.connector as mysql
-from models import User
+from models import User, config
 
-MYSQL_HOST = 'localhost'
-MYSQL_USER = 'campusnav_guest'
-MYSQL_PASSWORD = 'iqa0ysIYZg'
-MYSQL_DATABASE = 'campusnav'
-MONGO_URL = "mongodb+srv://face_recognition_guest:4bwBHaGaUSm7FdLY@cloudmongo-fbkmu.azure.mongodb.net/campusnav?retryWrites=true&w=majority"
+MYSQL_HOST = config.mysql.host
+MYSQL_USER = config.mysql.user
+MYSQL_PASSWORD = config.mysql.password
+MYSQL_DATABASE = config.mysql.database
+MONGO_URL = config.mongo.url
 mongo_client = None
 mysql_client = None
 

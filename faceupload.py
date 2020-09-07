@@ -134,8 +134,12 @@ if __name__ == '__main__':
         cam.release()
     elif op == 'r':
         uid = int(input("User Id: "))
-        db.remove_user_data(uid)
-        db.remove_user(uid)
+        if db.user_exists(uid):
+            db.remove_user_data(uid)
+            db.remove_user(uid)
+            print("User successfully removed.")
+        else:
+            print("User does not exist.")
     elif op == 'q':
         uid = int(input("User Id: "))
         if db.user_exists(uid):
