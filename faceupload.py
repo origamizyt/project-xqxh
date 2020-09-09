@@ -126,7 +126,7 @@ if __name__ == '__main__':
                         username = usernames[index] = db.get_user(uid).username
                     frame = cv2.putText(frame, f'User Id: {uid}', (l, (t-50 if t>50 else t+50)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
                     frame = cv2.putText(frame, f'User Name: {username}', (l, (t-30 if t>30 else t+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
-                    frame = cv2.putText(frame, 'Similarity: %.5f%%' % ((1-distance)*100), (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, f'Similarity: {1-distance:.5%}', (l, (t-10 if t>10 else t+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
                 else:
                     frame = cv2.rectangle(frame, (l, t), (r, b), (0, 0, 255), 2)
             cv2.imshow('tolerance=' + str(DISTANCE_THRESHOLD), frame)
