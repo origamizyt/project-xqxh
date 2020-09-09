@@ -6,6 +6,7 @@
         "database": "campusnav"
     },
     "mongo": {
-        "url": "mongodb+srv://face_recognition_guest:4bwBHaGaUSm7FdLY@cloudmongo-fbkmu.azure.mongodb.net/campusnav?retryWrites=true&w=majority"
+        "url": "mongodb+srv://face_recognition_guest:4bwBHaGaUSm7FdLY@cloudmongo-fbkmu.azure.mongodb.net/campusnav?retryWrites=true&w=majority",
+        "database": "campusnav"
     }
 }

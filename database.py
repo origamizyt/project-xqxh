@@ -9,6 +9,7 @@ MYSQL_USER = config.mysql.user
 MYSQL_PASSWORD = config.mysql.password
 MYSQL_DATABASE = config.mysql.database
 MONGO_URL = config.mongo.url
+MONGO_DATABASE = config.mongo.database
 mongo_client = None
 mysql_client = None
 
@@ -26,13 +27,13 @@ def get_mysql_client():
 
 def store_user_face(user_id, base64_data):
     client = get_mongo_client()
-    db = client.get_database('campusnav')
+    db = client.get_database(MONGO_DATABASE)
     db.faces.update_one({'user_id': user_id },
                         {'$set': {'face_data': base64_data}}, True)
 
 def get_user_face(user_id):
     client = get_mongo_client()
-    db = client.get_database('campusnav')
+    db = client.get_database(MONGO_DATABASE)
     result = db.faces.find_one({'user_id': user_id})
     if result:
         return result['face_data']
@@ -40,14 +41,14 @@ def get_user_face(user_id):
 
 def get_user_datas():
     client = get_mongo_client()
-    db = client.get_database('campusnav')
+    db = client.get_database(MONGO_DATABASE)
     result = db.faces.find()
     result = map(lambda doc: (doc['user_id'], doc['face_data']), result)
     return list(result)
 
 def remove_user_data(user_id):
     client = get_mongo_client()
-    db = client.get_database('campusnav')
+    db = client.get_database(MONGO_DATABASE)
     db.faces.remove({ 'user_id': user_id })
 
 def close_current_mongo_client():
