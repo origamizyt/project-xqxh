@@ -96,11 +96,11 @@ if __name__ == '__main__':
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
-            small = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+            small = cv2.resize(frame, (0, 0), fx=0.33, fy=0.33)
             face = find_single_face(small)
             if face is not None:
                 t, r, b, l = face
-                frame = cv2.rectangle(frame, (l*4, t*4), (r*4, b*4), (255, 0, 0), 2)
+                frame = cv2.rectangle(frame, (l*3, t*3), (r*3, b*3), (255, 0, 0), 2)
             cv2.imshow('face', frame)
             if cv2.waitKey(1) == 27: break
         cv2.destroyAllWindows()
@@ -114,22 +114,22 @@ if __name__ == '__main__':
         cam = cv2.VideoCapture(0)
         while True:
             ret, frame = cam.read()
-            small = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+            small = cv2.resize(frame, (0, 0), fx=0.33, fy=0.33)
             for face in find_faces(small):
                 t, r, b, l = face
                 new_face = face_recognition.face_encodings(small, [face])[0]
                 index, distance = face_match(new_face, models)
                 if index >= 0:
-                    frame = cv2.rectangle(frame, (l*4, t*4), (r*4, b*4), (0, 255, 0), 2)
+                    frame = cv2.rectangle(frame, (l*3, t*3), (r*3, b*3), (0, 255, 0), 2)
                     uid = ids[index]
                     username = usernames[index]
                     if username == None:
                         username = usernames[index] = db.get_user(uid).username
-                    frame = cv2.putText(frame, f'User Id: {uid}', (l*4, (t*4-50 if t*4>50 else t*4+50)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
-                    frame = cv2.putText(frame, f'User Name: {username}', (l*4, (t*4-30 if t*4>30 else t*4+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
-                    frame = cv2.putText(frame, f'Similarity: {1-distance:.5%}', (l*4, (t*4-10 if t*4>10 else t*4+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, f'User Id: {uid}', (l*3, (t*3-50 if t*3>50 else t*3+50)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, f'User Name: {username}', (l*3, (t*3-30 if t*3>30 else t*3+30)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
+                    frame = cv2.putText(frame, f'Similarity: {1-distance:.5%}', (l*3, (t*3-10 if t*3>10 else t*3+10)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 0), 1)
                 else:
-                    frame = cv2.rectangle(frame, (l*4, t*4), (r*4, b*4), (0, 0, 255), 2)
+                    frame = cv2.rectangle(frame, (l*3, t*3), (r*3, b*3), (0, 0, 255), 2)
             cv2.imshow('tolerance=' + str(DISTANCE_THRESHOLD), frame)
             if cv2.waitKey(1) == 27: break
         cv2.destroyAllWindows()
