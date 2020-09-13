@@ -4,12 +4,11 @@ import cv2.cv2 as cv2, base64, face_recognition, json, sys
 from io import BytesIO
 import numpy as np
 import database as db
-from models import User
+from models import User, config
 
 ERR_ERROR = 0
 ERR_NO_FACE = 1
-DISTANCE_THRESHOLD = 0.4
-SCALE = 0.25
+DISTANCE_THRESHOLD = config.face.distanceThreshold
 
 class UploadResult:
     def __init__(self, success, data):
