@@ -1,6 +1,6 @@
 # faceupload.py
 
-import cv2.cv2 as cv2, base64, face_recognition, json, sys
+import cv2.cv2 as cv2, base64, face_recognition, json, sys, pickle
 from io import BytesIO
 import numpy as np
 import database as db
@@ -38,22 +38,23 @@ def upload_internal(data):
     return UploadResult(True, None)
 
 def save_model(user_id, model):
-    b = BytesIO()
-    np.save(b, model)
-    db.store_user_face(user_id, encode_base64(b.getvalue()).decode('iso-8859-1'))
+    binary = pickle.dumps(model)
+    b64data = encode_base64(binary)
+    db.store_user_face(user_id, b64data.decode('iso-8859-1'))
 
 def load_model(user_id):
-    face_data = decode_base64(db.get_user_face(user_id).encode('iso-8859-1'))
-    b = BytesIO(face_data)
-    return np.load(b)
+    b64data = db.get_user_face(user_id).encode('iso-8859-1')
+    binary = decode_base64(b64data)
+    return pickle.loads(binary)
 
 def load_models():
     ids = []
     models = []
     for user_id, model in db.get_user_datas():
         ids.append(user_id)
-        b = BytesIO(decode_base64(model.encode('iso-8859-1')))
-        models.append(np.load(b))
+        b64data = model.encode('iso-8859-1')
+        binary = decode_base64(b64data)
+        models.append(pickle.loads(binary))
     return ids, models
 
 def face_match(new_face, models, threshold=DISTANCE_THRESHOLD):
@@ -101,7 +102,9 @@ if __name__ == '__main__':
             if face is not None:
                 t, r, b, l = face
                 frame = cv2.rectangle(frame, (l*3, t*3), (r*3, b*3), (255, 0, 0), 2)
-            cv2.imshow('face', frame)
+            else:
+                frame = cv2.putText(frame, 'Please move your face closer.', (10, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
+            cv2.imshow(f'Face registering for user {username}', frame)
             if cv2.waitKey(1) == 27: break
         cv2.destroyAllWindows()
         cam.release()
