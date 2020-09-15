@@ -105,7 +105,7 @@ if __name__ == '__main__':
             else:
                 frame = cv2.putText(frame, 'Please move your face closer.', (10, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
             cv2.imshow(f'Face registering for user {username}', frame)
-            if cv2.waitKey(1) == 27: break
+            if cv2.waitKey(1) == 27 and face is not None: break
         cv2.destroyAllWindows()
         cam.release()
         bframe = encode_base64_image(frame)
