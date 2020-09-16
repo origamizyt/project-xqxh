@@ -22,7 +22,12 @@ def get_mongo_client():
 def get_mysql_client():
     global mysql_client
     if mysql_client is None:
-        mysql_client = mysql.connect(host=MYSQL_HOST, user=MYSQL_USER, passwd=MYSQL_PASSWORD, database=MYSQL_DATABASE)
+        mysql_client = mysql.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            passwd=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            auth_plugin='mysql_native_password')
     return mysql_client
 
 def store_user_face(user_id, base64_data):
