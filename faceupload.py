@@ -58,6 +58,8 @@ def load_models():
     return ids, models
 
 def face_match(new_face, models, threshold=DISTANCE_THRESHOLD):
+    if len(models) == 0:
+        return -1, None
     result = face_recognition.face_distance(models, new_face)
     index = np.argmin(result)
     if result[index] > threshold:
