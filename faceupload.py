@@ -72,7 +72,7 @@ def encode_base64(data):
 
 def decode_base64_image(data):
     data = base64.b64decode(data)
-    array = np.fromstring(data, np.uint8)
+    array = np.frombuffer(data, np.uint8)
     return cv2.imdecode(array, cv2.IMREAD_COLOR)
 
 def encode_base64_image(data):
