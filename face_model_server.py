@@ -24,7 +24,7 @@ def face_detect(environ, start_response):
     if 'face' in data:
         image_data = faceupload.decode_base64_image(data['face'][0])
         faces = faceupload.find_faces(image_data)
-        start_response('200 OK', [('Content-type': 'application/json')])
+        start_response('200 OK', [('Content-type', 'application/json')])
         feedback = json.dumps(faces)
     else:
         start_response('400 Bad Request', [])
