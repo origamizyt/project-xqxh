@@ -1,14 +1,40 @@
 from wsgiref.simple_server import make_server
-import cgi, json
+from urllib.parse import parse_qs
+from models import config
+import json, time, faceupload
+
+def get_server_info():
+    return {
+        'serverName': config.server.name,
+        'serverTime': int(time.time() * 1000)
+    }
+
+def read_content(environ):
+    length = int(environ.get('CONTENT_LENGTH', 0))
+    return environ['wsgi.input'].read(length)
 
 def root(environ, start_response):
     start_response("200 OK", [('Content-type', 'application/json')])
-    return [json.dumps(data).encode()]
+    return [json.dumps(get_server_info()).encode()]
+
+def face_detect(environ, start_response):
+    content = read_content(environ)
+    data = parse_qs(content)
+    feedback = ''
+    if 'face' in data:
+        image_data = faceupload.decode_base64_image(data['face'][0])
+        faces = faceupload.find_faces(image_data)
+        start_response('200 OK', [('Content-type': 'application/json')])
+        feedback = json.dumps(faces)
+    else:
+        start_response('400 Bad Request', [])
+        feedback = "Parameter 'face' not found."
+    return [feedback.encode()]
+
 
 def face_upload(environ, start_response):
-    length = int(environ.get('CONTENT_LENGTH', 0))
-    content = environ['wsgi.input'].read(length).decode()
-    data = cgi.parse_qs(content)
+    content = read_content(environ).decode()
+    data = parse_qs(content)
     start_response("200 OK", [('Content-type', 'application/json')])
     return [json.dumps(data).encode()]
 
@@ -19,7 +45,7 @@ pages = {
     }
 
 def application(environ, start_response):
-    path = environ['PATH_INFO']
+    path = environ['PATH_INFO'].lower()
     if path in pages:
         return pages[path](environ, start_response)
     start_response('404 NOT FOUND', [])

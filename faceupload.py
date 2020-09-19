@@ -35,7 +35,7 @@ def upload_internal(data):
         return UploadResult(False, ERR_NO_FACE)
     trait = face_recognition.face_encodings(image)[0]
     save_model(data.user_id, trait)
-    return UploadResult(True, None)
+    return UploadResult(True, data.user_id)
 
 def save_model(user_id, model):
     binary = pickle.dumps(model)
