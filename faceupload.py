@@ -4,23 +4,12 @@ import cv2.cv2 as cv2, base64, face_recognition, json, sys, pickle
 from io import BytesIO
 import numpy as np
 import database as db
-from models import User, config
+from models import User, config, FaceData, UploadResult
 
 ERR_ERROR = 0
 ERR_NO_FACE = 1
 DISTANCE_THRESHOLD = config.face.distanceThreshold
 
-class UploadResult:
-    def __init__(self, success, data):
-        self.success = success
-        self.data = data
-    def toJson(self):
-        return json.dumps({"success": self.success, "data": self.data})
-
-class FaceData:
-    def __init__(self, user_id, data):
-        self.user_id = user_id
-        self.data = data
 
 def upload(data):
     try:

@@ -9,9 +9,8 @@ def get_server_info():
         'serverTime': int(time.time() * 1000)
     }
 
-def read_content(environ):
-    length = int(environ.get('CONTENT_LENGTH', 0))
-    return environ['wsgi.input'].read(length)
+def read_content(environ): 
+    return environ['wsgi.input'].read()
 
 def root(environ, start_response):
     start_response("200 OK", [('Content-type', 'application/json')])
@@ -19,16 +18,10 @@ def root(environ, start_response):
 
 def face_detect(environ, start_response):
     content = read_content(environ)
-    data = parse_qs(content)
-    feedback = ''
-    if 'face' in data:
-        image_data = faceupload.decode_base64_image(data['face'][0])
-        faces = faceupload.find_faces(image_data)
-        start_response('200 OK', [('Content-type', 'application/json')])
-        feedback = json.dumps(faces)
-    else:
-        start_response('400 Bad Request', [])
-        feedback = "Parameter 'face' not found."
+    image_data = faceupload.decode_base64_image(content)
+    faces = faceupload.find_faces(image_data)
+    start_response('200 OK', [('Content-type', 'application/json')])
+    feedback = json.dumps(faces)
     return [feedback.encode()]
 
 
@@ -41,7 +34,8 @@ def face_upload(environ, start_response):
 data = {'success': True, 'error': None}
 pages = {
     '/': root,
-    '/faceupload': face_upload
+    '/faceupload': face_upload,
+    '/facedetect': face_detect
     }
 
 def application(environ, start_response):

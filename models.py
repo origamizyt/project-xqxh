@@ -34,3 +34,15 @@ class User:
         return {
             'username': self.username
         }
+
+class UploadResult:
+    def __init__(self, success, data):
+        self.success = success
+        self.data = data
+    def toJson(self):
+        return json.dumps({"success": self.success, "data": self.data})
+
+class FaceData:
+    def __init__(self, user_id, data):
+        self.user_id = user_id
+        self.data = data
