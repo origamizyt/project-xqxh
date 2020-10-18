@@ -94,3 +94,11 @@ def remove_user(user_id):
     cursor = client.cursor()
     cursor.execute('DELETE FROM users WHERE user_id = %s', (user_id,))
     client.commit()
+
+def certify_dog(dog_name, password):
+    client= get_mysql_client()
+    cursor = client.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM dogs WHERE dog_name = %s', (dog_name,))
+    result = cursor.fetchone()
+    if result is None: return False
+    return result['password'] == password
