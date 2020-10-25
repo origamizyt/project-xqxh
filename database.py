@@ -87,7 +87,7 @@ def get_user(user_id):
     cursor.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
     result = cursor.fetchone()
     if result is None: return None
-    return User(result['username'])
+    return User(**result)
 
 def remove_user(user_id):
     client = get_mysql_client()

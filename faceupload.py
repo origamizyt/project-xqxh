@@ -70,6 +70,12 @@ def encode_base64_image(data):
     array = cv2.imencode('.png', data)[1]
     return base64.b64encode(array)
 
+def encode_jpg(array):
+    return cv2.imencode('.png', array)[1].tobytes()
+
+def decode_jpg(data):
+    return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+
 def find_single_face(image):
     faces = face_recognition.face_locations(image)
     if len(faces) > 0:
@@ -79,11 +85,15 @@ def find_single_face(image):
 def find_faces(image):
     return face_recognition.face_locations(image)
 
+def face_encodings(image, locations=None):
+    return face_recognition.face_encodings(image, locations)[0]
+
 if __name__ == '__main__':
     op = input("Store/Detect/Remove/Query (s/d/r/q): ").strip().lower()
     if op == 's':
         username = input("Username: ")
-        uid = db.register_user(User(username))
+        password = input("Password: ")
+        uid = db.register_user(User(username=username, password=password))
         print("Your user id is:", uid)
         cam = cv2.VideoCapture(0)
         while True:

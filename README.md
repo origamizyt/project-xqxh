@@ -14,11 +14,14 @@ Repository: https://github.com/origamizyt/project-xqxh.git
 - 文件类型: Python 文件 (.py)
 - 描述: 负责脸部数据的上传和人脸识别
 
-### `face_model_server.py`
+### `server.py`
 
-- 文件名: face_model_server.py
+- 文件名: server.py
 - 文件类型: Python 文件 (.py)
-- 描述: 脸部数据上传的服务器
+- 描述: 负责数据交互的服务器
+
+注意: 此文件不是模块。
+要运行此文件，请打开命令行运行 `twistd -n web --wsgi server.app --listen tcp:5000`
 
 ### `database.py`
 
@@ -31,3 +34,9 @@ Repository: https://github.com/origamizyt/project-xqxh.git
 - 文件名: models.py
 - 文件类型: Python 文件 (.py)
 - 描述: 定义接口中使用的对象模型
+
+### `security.py`
+
+- 文件名: security.py
+- 文件类型: Python 文件 (.py)
+- 描述: 加解密接口
