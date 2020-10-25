@@ -150,8 +150,13 @@ class ServerMethods:
     def getSession(self, addr):
         return self.addressMap.get(addr)
     def endSession(self, addr):
+        if addr in self.usingTcp:
+            if self.usingTcp[addr].isOccupied():
+                return False
+            self.releaseServerSlot(addr)
         if addr in self.addressMap:
             del self.addressMap[addr]
+        return True
     def authenticate(self, addr, data=None):
         if addr not in self.addressMap: return False
         return security.certify_hmac_digest(self.hmacKey, self.addressMap[addr].getSessionBytes(), data)

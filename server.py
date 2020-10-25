@@ -129,9 +129,11 @@ def face_upload():
 @app.route('/endsession')
 def quit_session():
     addr = client_addr()
-    methods.endSession(addr)
     response.set_header('Content-type', 'application/json')
-    return Result(True).toJson()
+    if methods.endSession(addr):
+        return Result(True).toJson()
+    else:
+        return Result(False, error='Cannot terminate session while server slot is being occupied.').toJson()
 
 factory = TcpFactory()
 reactor.listenTCP(5050, factory)
