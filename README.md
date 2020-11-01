@@ -20,9 +20,6 @@ Repository: https://github.com/origamizyt/project-xqxh.git
 - 文件类型: Python 文件 (.py)
 - 描述: 负责数据交互的服务器
 
-注意: 此文件不是模块。
-要运行此文件，请打开命令行运行 `twistd -n web --wsgi server.app --listen tcp:5000`
-
 ### `database.py`
 
 - 文件名: database.py
@@ -40,3 +37,19 @@ Repository: https://github.com/origamizyt/project-xqxh.git
 - 文件名: security.py
 - 文件类型: Python 文件 (.py)
 - 描述: 加解密接口
+
+### `debug_utils.py`
+
+- 文件名: debug_utils.py
+- 文件类型: Python 文件 (.py)
+- 描述: 负责调试的模块
+
+## 附加文件
+
+### `script-serverdaemon.py`
+
+- 文件名: script-serverdaemon.py
+- 文件类型: Python 文件 (.py)
+- 描述: 服务器入口点
+
+注: 此文件不是模块，要运行请在命令行输入 `twistd -y script-serverdaemon.py`

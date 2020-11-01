@@ -102,3 +102,11 @@ def certify_dog(dog_name, password):
     result = cursor.fetchone()
     if result is None: return False
     return result['password'] == password
+
+def get_dog(dog_name):
+    client = get_mysql_client()
+    cursor = client.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM dogs WHERE dog_name = %s', (dog_name,))
+    result = cursor.fetchone()
+    if result is None: return None
+    return User(username=dog_name, password=result['password'])

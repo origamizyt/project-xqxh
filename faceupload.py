@@ -70,10 +70,10 @@ def encode_base64_image(data):
     array = cv2.imencode('.png', data)[1]
     return base64.b64encode(array)
 
-def encode_jpg(array):
+def encode_png(array):
     return cv2.imencode('.png', array)[1].tobytes()
 
-def decode_jpg(data):
+def decode_png(data):
     return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
 
 def find_single_face(image):
