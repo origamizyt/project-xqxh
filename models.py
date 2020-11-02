@@ -8,6 +8,21 @@ from twisted.internet.protocol import Protocol, Factory
 from twisted.python import log
 from autobahn.twisted.websocket import WebSocketServerProtocol, WebSocketServerFactory
 
+class Serializer:
+    httpContentType = 'application/json'
+    @staticmethod
+    def serialize(data):
+        return json.dumps(data)
+    @staticmethod
+    def deserialize(data):
+        return json.loads(data)
+    @staticmethod
+    def serializeBinary(data):
+        return msgpack.packb(data)
+    @staticmethod
+    def deserializeBinary(data):
+        return msgpack.unpackb(data)
+
 class Config:
     def __init__(self, data):
         self.data = data
@@ -32,6 +47,16 @@ class Config:
 
 config = Config.getConfig("config.json")
 
+class Result(dict):
+    def __init__(self, success, **kwargs):
+        super().__init__(success=success, **kwargs)
+    def serialize(self):
+        return Serializer.serialize(dict(self))
+    def serializeBinary(self):
+        return Serializer.serializeBinary(dict(self))
+    def __str__(self):
+        return self.serialize()
+
 class User:
     def __init__(self, **kwargs):
         self.username = kwargs.get('username')
@@ -41,12 +66,9 @@ class User:
             'username': self.username
         }
 
-class UploadResult:
+class UploadResult(Result):
     def __init__(self, success, data):
-        self.success = success
-        self.data = data
-    def toJson(self):
-        return json.dumps({"success": self.success, "data": self.data})
+        super().__init__(success=success, data=data)
 
 class FaceData:
     def __init__(self, user_id, data):
@@ -318,7 +340,7 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
         else:
             result = Result(False)
         utils.show_face_detect_image(self.slot.address, data, result)
-        return result.toMsgPack()
+        return result.serializeBinary()
     def faceRecognize(self, data):
         data = fu.decode_png(data)
         faces = []
@@ -335,7 +357,7 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
         else:
             result = Result(True, faces=faces)
         utils.show_face_recognize_image(self.slot.address, data, result)
-        return result.toMsgPack()
+        return result.serializeBinary()
     def encryptAndSend(self, data):
         data = self.keys.encrypt(data)
         self.send(data)
@@ -347,17 +369,17 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
         data = msgpack.loads(data)
         signature = data.get('signature')
         if not signature:
-            self.send(Result(False, error='A signature must be provided.').toMsgPack())
+            self.send(Result(False, error='A signature must be provided.').serializeBinary())
             self.transport.loseConnection()
             return
         signature = base64.b64decode(signature)
         if not self.keys.verifySignature(signature, self.slot.secret):
-            self.send(Result(False, error='Signature mismatch.').toMsgPack())
+            self.send(Result(False, error='Signature mismatch.').serializeBinary())
             self.transport.loseConnection()
             return
         self.type = data.get('type')
         if not self.type:
-            self.send(Result(False, error='A data type must be provided.').toMsgPack())
+            self.send(Result(False, error='A data type must be provided.').serializeBinary())
             self.transport.loseConnection()
             return
         if self.type == 'detect':
@@ -368,11 +390,11 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
             self.extraData['ids'], self.extraData['models'] = fu.load_models()
             utils.prepare_recognize_image(self.slot.address)
         else:
-            self.send(Result(False, error='Invalid data type.').toMsgPack())
+            self.send(Result(False, error='Invalid data type.').serializeBinary())
             self.transport.loseConnection()
             return
         self.verified = True
-        self.send(Result(True).toMsgPack())
+        self.send(Result(True).serializeBinary())
         utils.debug_log(f'Socket handshake with {self.slot.address} complete.')
         utils.debug_log(f'Socket type: {self.type}, remote signature: {signature}')
     def connectionLost(self, reason):
@@ -386,7 +408,7 @@ class OccupiedTcpProtocol(Protocol):
     def __init__(self, slot):
         self.slot = slot
     def connectionMade(self):
-        data = Result(False, error='Server slot is occupied by another session.').toJsonBytes()
+        data = Result(False, error='Server slot is occupied by another session.').serializeBytes()
         length = len(data)
         header = struct.pack('>I', length)
         self.transport.write(header + data)
@@ -427,13 +449,13 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
         self.slot = ServerMethods.getInstance().getTcpSlot(request.peer.split(':')[1])
         if self.slot.isOccupied():
             self.needsClose = True
-            self.closeMessage = Result(False, error='Server slot is being occupied by another session.').toMsgPack()
+            self.closeMessage = Result(False, error='Server slot is being occupied by another session.').serializeBinary()
         if not self.slot.canUseTcp():
             self.needsClose = True
-            self.closeMessage = Result(False, error='Client not authorized to use web sockets.').toMsgPack()
+            self.closeMessage = Result(False, error='Client not authorized to use web sockets.').serializeBinary()
         if not self.slot.getSlotType() == SlotType.TSS_SENSITIVE_DATA:
             self.needsClose = True
-            self.closeMessage = Result(False, error='Incorrect server slot type.').toMsgPack()
+            self.closeMessage = Result(False, error='Incorrect server slot type.').serializeBinary()
     def onOpen(self):
         if self.needsClose:
             self.sendMessage(self.closeMessage, isBinary=True)
@@ -451,17 +473,17 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
         data = msgpack.loads(data)
         signature = data.get('signature')
         if not signature:
-            self.send(Result(False, error='A signature must be provided.').toMsgPack())
+            self.send(Result(False, error='A signature must be provided.').serializeBinary())
             self.transport.loseConnection()
             return
         signature = base64.b64decode(signature)
         if not self.slot.eccKey.verifySignature(signature, self.slot.secret):
-            self.send(Result(False, error='Signature mismatch.').toMsgPack())
+            self.send(Result(False, error='Signature mismatch.').serializeBinary())
             self.transport.loseConnection()
             return
         datatype = data.get('type')
         if not datatype:
-            self.send(Result(False, error='A data type must be provided.').toMsgPack())
+            self.send(Result(False, error='A data type must be provided.').serializeBinary())
             self.transport.loseConnection()
             return
         if datatype == 'detect':
@@ -470,25 +492,14 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
             self.handler = self.faceRecognize
             self.extraData['ids'], self.extraData['models'] = fu.load_models()
         else:
-            self.send(Result(False, error='Invalid data type.').toMsgPack())
+            self.send(Result(False, error='Invalid data type.').serializeBinary())
             self.transport.loseConnection()
             return
         self.verified = True
-        self.send(Result(True).toMsgPack())
+        self.send(Result(True).serializeBinary())
         log.msg(f'Socket handshake with {self.slot.address} complete.')
         log.msg(f'Socket type: {datatype}, remote signature: {signature}')
         
 
 class WebSocketFactory(WebSocketServerFactory):
     protocol = SensitiveDataWebSocketProtocol
-
-
-class Result(dict):
-    def __init__(self, success, **kwargs):
-        super().__init__(success=success, **kwargs)
-    def toJson(self):
-        return json.dumps(self)
-    def toMsgPack(self):
-        return msgpack.dumps(dict(self))
-    def __str__(self):
-        return self.toJson()
