@@ -130,7 +130,7 @@ class Session:
             authorized=False,
             locked=False)
         self.permission = NoPermission()
-        self.eccKeys = security.EccKeys(ServerMethods.getInstance().getPrivateKey().secret)
+        self.eccKeys = security.EccKeys(ServerMethods.getPrivateKey().secret)
     def getEccKeys(self):
         return self.eccKeys
     def ecdhKeyExchange(self, remote_key):
@@ -173,7 +173,6 @@ class SessionAttributes:
             del self.data[name]
 
 class ServerMethods:
-    _instance = None
     def __init__(self):
         self.addressMap = AddressMap()
         self.usingTcp = TcpUsingList()
@@ -254,11 +253,8 @@ class ServerMethods:
     @staticmethod
     def base64encode(data):
         return base64.b64encode(data).decode('iso-8859-1')
-    @staticmethod
-    def getInstance():
-        if ServerMethods._instance is None:
-            ServerMethods._instance = ServerMethods()
-        return ServerMethods._instance
+
+ServerMethods = ServerMethods()
 
 class SlotType(IntEnum):
     TSS_UNAUTHORIZED = 0
@@ -295,7 +291,7 @@ class TcpProtocol(Protocol):
         self.slot = slot
         self.extraData = {}
     def connectionLost(self, reason):
-        ServerMethods.getInstance().releaseServerSlot(self.slot.address)
+        ServerMethods.releaseServerSlot(self.slot.address)
 
 class StructHeaderTcpProtocol(TcpProtocol):
     def __init__(self, slot):
@@ -324,7 +320,7 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
         super().__init__(slot)
         self.verified = False
         self.handler = None
-        self.keys = ServerMethods.getInstance().getSession(slot.address).getEccKeys()
+        self.keys = ServerMethods.getSession(slot.address).getEccKeys()
         self.type = None
     def process(self, line):
         if not self.verified:
@@ -425,7 +421,7 @@ class LargeDataTcpProtocol(Protocol):
 
 class TcpFactory(Factory):
     def buildProtocol(self, addr):
-        methods = ServerMethods.getInstance()
+        methods = ServerMethods
         slot = methods.getTcpSlot(addr.host)
         if not slot.canUseTcp():
             return None
@@ -446,7 +442,7 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
         self.verified = False
     def onConnect(self, request):
         log.msg(f'Web socket connection from {request.peer}')
-        self.slot = ServerMethods.getInstance().getTcpSlot(request.peer.split(':')[1])
+        self.slot = ServerMethods.getTcpSlot(request.peer.split(':')[1])
         if self.slot.isOccupied():
             self.needsClose = True
             self.closeMessage = Result(False, error='Server slot is being occupied by another session.').serializeBinary()

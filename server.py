@@ -8,7 +8,7 @@ from bottle import request, response
 import json, time, faceupload, bottle, sys
 
 app = bottle.Bottle()
-methods = ServerMethods.getInstance()
+methods = ServerMethods
 
 def client_addr():
     return request.environ.get('HTTP_X_FORWARDED_FOR') or request.environ.get('REMOTE_ADDR')
