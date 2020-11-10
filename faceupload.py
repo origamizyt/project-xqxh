@@ -5,45 +5,37 @@ from io import BytesIO
 import numpy as np
 import database as db
 from models import User, config, FaceData, UploadResult
+from errors import ErrorCode
 
-ERR_ERROR = 0
-ERR_NO_FACE = 1
 DISTANCE_THRESHOLD = config.face.distanceThreshold
 
-
-def upload(data):
+def upload(data, user_id):
     try:
-        return upload_internal(data)
+        return upload_internal(data, user_id)
     except Exception:
-        return UploadResult(False, ERR_ERROR)
+        return UploadResult(False, ErrorCode.ERR_SERVER_ERROR)
 
-def upload_internal(data):
-    image = decode_base64_image(data.data)
-    face = find_single_face(image)
+def upload_internal(data, user_id):
+    face = find_single_face(data)
     if face is None:
-        return UploadResult(False, ERR_NO_FACE)
-    trait = face_recognition.face_encodings(image)[0]
-    save_model(data.user_id, trait)
-    return UploadResult(True, data.user_id)
+        return UploadResult(False, ErrorCode.ERR_NO_FACE_DETECTED)
+    trait = face_encodings(data, [face])
+    save_model(user_id, trait)
+    return UploadResult(True, None)
 
 def save_model(user_id, model):
-    binary = pickle.dumps(model)
-    b64data = encode_base64(binary)
-    db.store_user_face(user_id, b64data.decode('iso-8859-1'))
+    binary = model.tobytes()
+    db.store_user_face(user_id, binary)
 
 def load_model(user_id):
-    b64data = db.get_user_face(user_id).encode('iso-8859-1')
-    binary = decode_base64(b64data)
-    return pickle.loads(binary)
+    return np.frombuffer(db.get_user_face(user_id))
 
 def load_models():
     ids = []
     models = []
     for user_id, model in db.get_user_datas():
         ids.append(user_id)
-        b64data = model.encode('iso-8859-1')
-        binary = decode_base64(b64data)
-        models.append(pickle.loads(binary))
+        models.append(np.frombuffer(model))
     return ids, models
 
 def face_match(new_face, models, threshold=DISTANCE_THRESHOLD):
@@ -86,7 +78,7 @@ def find_faces(image):
     return face_recognition.face_locations(image)
 
 def face_encodings(image, locations=None):
-    return face_recognition.face_encodings(image, locations)[0]
+    return face_recognition.face_encodings(image, locations, config.face.jitters)[0]
 
 if __name__ == '__main__':
     op = input("Store/Detect/Remove/Query (s/d/r/q): ").strip().lower()
@@ -109,9 +101,7 @@ if __name__ == '__main__':
             if cv2.waitKey(1) == 27 and face is not None: break
         cv2.destroyAllWindows()
         cam.release()
-        bframe = encode_base64_image(frame)
-        fd = FaceData(uid, bframe)
-        print(upload_internal(fd).toJson())
+        print(upload_internal(frame, uid).serialize())
     elif op == 'd':
         ids, models = load_models()
         usernames = [None] * len(ids)

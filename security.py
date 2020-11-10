@@ -1,10 +1,10 @@
-import os, coincurve as coin, ecies, hmac
+import coincurve as coin, ecies, hmac, secrets
 
 def generate_private_key():
     return coin.PrivateKey()
 
 def generate_secret():
-    return os.urandom(32)
+    return secrets.token_bytes()
 
 def certify_hmac_digest(key, data, digest):
     return hmac.compare_digest(hmac.digest(key, data, digest='sha256'), digest)

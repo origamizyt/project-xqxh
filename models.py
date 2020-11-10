@@ -1,7 +1,8 @@
 # models.py
 # Defines the data models used in the interface.
 
-import json, hmac, uuid, base64, security, struct, msgpack
+import json, hmac, uuid, base64, security, struct, msgpack, lzma, bz2
+from errors import ErrorCode
 from enum import IntEnum
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol, Factory
@@ -10,6 +11,7 @@ from autobahn.twisted.websocket import WebSocketServerProtocol, WebSocketServerF
 
 class Serializer:
     httpContentType = 'application/json'
+    # serialization
     @staticmethod
     def serialize(data):
         return json.dumps(data)
@@ -22,10 +24,25 @@ class Serializer:
     @staticmethod
     def deserializeBinary(data):
         return msgpack.unpackb(data)
+    # compression
+    # uses bz2 for small compression and lzma for large compression
+    @staticmethod
+    def compress(data):
+        return lzma.compress(data) if config.server.dataCompression else data
+    @staticmethod
+    def decompress(data):
+        return lzma.decompress(data) if config.server.dataCompression else data
+    @staticmethod
+    def compressLarge(data):
+        return bz2.compress(data) if config.server.largeDataCompression else data
+    @staticmethod
+    def decompressLarge(data):
+        return bz2.decompress(data) if config.server.largeDataCompression else data
 
 class Config:
-    def __init__(self, data):
+    def __init__(self, data={}):
         self.data = data
+        self.file = None
     def __getattr__(self, name):
         item = self.data[name]
         if isinstance(item, (dict, list, tuple)):
@@ -38,14 +55,17 @@ class Config:
             return Config(item)
         else:
             return item
-    @staticmethod
-    def getConfig(filename):
-        config_file = open(filename)
-        data = json.load(config_file)
-        config_file.close()
-        return Config(data)
+    def __iter__(self):
+        return iter(self.data)
+    def loadFile(self, filename):
+        self.file = filename
+        with open(filename) as config_file:
+            self.data = json.load(config_file)
+    def reloadFile(self):
+        self.loadFile(self.file)
 
-config = Config.getConfig("config.json")
+config = Config()
+config.loadFile('config.json')
 
 class Result(dict):
     def __init__(self, success, **kwargs):
@@ -68,7 +88,7 @@ class User:
 
 class UploadResult(Result):
     def __init__(self, success, data):
-        super().__init__(success=success, data=data)
+        super().__init__(success, data=data)
 
 class FaceData:
     def __init__(self, user_id, data):
@@ -77,29 +97,69 @@ class FaceData:
 
 import database as db, faceupload as fu, debug_utils as utils
 
-class Permission: pass
+class PermissionType(IntEnum):
+    BOOLEAN = 0
+    INTEGER = 1
+    NULLABLE_INTEGER = 2
+    STRING = 3
+    NULLABLE_STRING = 4
+
+class PermissionItem:
+    def __init__(self, ptype, pvalue):
+        self.permissionType = ptype
+        self.permissionValue = pvalue
+    def getType(self):
+        return self.permissionType
+    def getValue(self):
+        return self.permissionValue
+    def __repr__(self):
+        return f'PermissionItem(type={self.permissionType!r}, value={self.permissionValue!r})'
+    def __str__(self):
+        return str(self.permissionValue)
+
+class Permission:
+    def has(self, name):
+        perm = getattr(self, name, None)
+        return isinstance(perm, PermissionItem)
+    def get(self, name):
+        if not self.has(name):
+            raise AttributeError(f'No permission named {name!r}')
+        perm = getattr(self, name)
+        return perm
+    def getValue(self, name):
+        perm = self.get(name)
+        return perm.getValue()
+    def getType(self, name):
+        perm = self.get(name)
+        return perm.getType()
 
 class NoPermission(Permission):
-    faceRecognition = False
-    userData = None
-    accessMaps = False
-    planRoute = False
-    accessLocations = False
+    faceDetect = PermissionItem(PermissionType.BOOLEAN, False)
+    faceRecognition = PermissionItem(PermissionType.BOOLEAN, False)
+    faceUpload = PermissionItem(PermissionType.BOOLEAN, False)
+    userData = PermissionItem(PermissionType.NULLABLE_STRING, None)
+    accessMaps = PermissionItem(PermissionType.BOOLEAN, False)
+    planRoute = PermissionItem(PermissionType.BOOLEAN, False)
+    accessLocations = PermissionItem(PermissionType.BOOLEAN, False)
 
 class DogPermission(Permission):
-    faceRecognition = True
-    userData = '*'
-    accessMaps = True
-    planRoute = True
-    accessLocations = True
+    faceDetect = PermissionItem(PermissionType.BOOLEAN, True)
+    faceRecognition = PermissionItem(PermissionType.BOOLEAN, True)
+    faceUpload = PermissionItem(PermissionType.BOOLEAN, False)
+    userData = PermissionItem(PermissionType.NULLABLE_STRING, '*')
+    accessMaps = PermissionItem(PermissionType.BOOLEAN, True)
+    planRoute = PermissionItem(PermissionType.BOOLEAN, True)
+    accessLocations = PermissionItem(PermissionType.BOOLEAN, True)
 
 class HumanPermission(Permission):
-    faceRecognition = True
-    accessMaps = False
-    planRoute = False
-    accessLocations = False
+    faceDetect = PermissionItem(PermissionType.BOOLEAN, True)
+    faceRecognition = PermissionItem(PermissionType.BOOLEAN, False)
+    faceUpload = PermissionItem(PermissionType.BOOLEAN, True)
+    accessMaps = PermissionItem(PermissionType.BOOLEAN, False)
+    planRoute = PermissionItem(PermissionType.BOOLEAN, False)
+    accessLocations = PermissionItem(PermissionType.BOOLEAN, False)
     def __init__(self, user):
-        self.userData = user
+        self.userData = PermissionItem(PermissionType.NULLABLE_STRING, user)
 
 class AddressMap(dict):
     def isUserNameOccupied(self, username):
@@ -195,11 +255,11 @@ class ServerMethods:
     def getTcpSlot(self, addr):
         return self.usingTcp.get(addr, TcpServerSlot(addr, SlotType.TSS_UNAUTHORIZED))
     def updatePrivateKey(self):
-        self.privateKey = security.generate_hmac_key()
+        self.privateKey = security.generate_private_key()
     def getPrivateKey(self):
         return self.privateKey
     def getSession(self, addr):
-        return self.addressMap.get(addr)
+        return self.addressMap.setdefault(addr, Session())
     def endSession(self, addr):
         if addr in self.usingTcp:
             if self.usingTcp[addr].isOccupied():
@@ -222,6 +282,11 @@ class ServerMethods:
     def dogCertificate(self, addr, dog_name, password):
         if db.certify_dog(dog_name, password):
             self.addressMap.setdefault(addr, Session()).setUserName(dog_name)
+            return True
+        else: return False
+    def userCertificate(self, addr, username, password):
+        if db.certify_user(username, password):
+            self.addressMap.setdefault(addr, Session()).setUserName(username)
             return True
         else: return False
     def isUserNameOccupied(self, username):
@@ -247,6 +312,30 @@ class ServerMethods:
         if addr not in self.usingTcp: return False
         slot = self.usingTcp[addr]
         return security.certify_hmac_digest(self.addressMap[addr].getHMacKey(), slot.getSecret(), data)
+    def hasPermission(self, addr, name):
+        if addr not in self.addressMap: return False
+        return self.addressMap[addr].permission.has(name)
+    def hasUserPermissionFor(self, addr, username):
+        perm = self.getPermission(addr, 'userData')
+        if perm.getValue() == '*': return True
+        return perm.getValue() == username
+    def getPermission(self, addr, name):
+        if addr not in self.addressMap: return None
+        return self.addressMap[addr].permission.get(name)
+    def verifyUser(self, addr, username, password_hmac):
+        return security.certify_hmac_digest(self.addressMap[addr].getHMacKey(), db.get_user_by_username(username).password.encode(), password_hmac)
+    @staticmethod
+    def getUserId(username):
+        return db.get_user_id(username)
+    @staticmethod
+    def userExists(username):
+        return db.user_exists(username)
+    @staticmethod
+    def registerUser(username, password):
+        return db.register_user(User(username=username, password=password))
+    @staticmethod
+    def isValidUser(username, password):
+        return bool(username.strip() and password.strip())
     @staticmethod
     def base64decode(data):
         return base64.b64decode(data.encode('iso-8859-1'))
@@ -300,19 +389,19 @@ class StructHeaderTcpProtocol(TcpProtocol):
         self.length = 0
     def dataReceived(self, data):
         if not self.length:
-            header = data[:4]
-            self.length = struct.unpack('>I', header)[0]
-            data = data[4:]
+            header = data[:5]
+            self.length, self.isHeader = struct.unpack('>I?', header)
+            data = data[5:]
         self.buffer += data
         if len(self.buffer) >= self.length > 0:
-            self.process(self.buffer[:self.length])
+            self.process(self.buffer[:self.length], self.isHeader)
             self.buffer = self.buffer[self.length:]
             self.length = 0
             if self.buffer:
-                header = self.buffer[:4]
-                self.buffer = self.buffer[4:]
-                self.length = struct.unpack('>I', header)[0]
-    def process(self, data):
+                header = self.buffer[:5]
+                self.buffer = self.buffer[5:]
+                self.length, self.isHeader = struct.unpack('>I?', header)
+    def process(self, data, isHeader):
         pass
 
 class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
@@ -322,12 +411,22 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
         self.handler = None
         self.keys = ServerMethods.getSession(slot.address).getEccKeys()
         self.type = None
-    def process(self, line):
-        if not self.verified:
-            self.handshake(line)
+    def checkPermission(self, name):
+        perm = ServerMethods.getPermission(self.slot.address, name)
+        return perm.getValue()
+    def process(self, line, isHeader):
+        if isHeader:
+            line = Serializer.decompress(line)
+            line = self.keys.decrypt(line)
+            if not self.verified:
+                self.handshake(line)
+            else:
+                self.processHeader(line)
         elif self.handler:
             line = self.keys.decrypt(line)
-            self.encryptAndSend(self.handler(line))
+            self.send(self.handler(line))
+        else:
+            self.send(Result(False, error=ErrorCode.ERR_NO_HANDLER).serializeBinary())
     def faceDetect(self, data):
         data = fu.decode_png(data)
         pos = fu.find_faces(data)
@@ -354,39 +453,113 @@ class SensitiveDataTcpProtocol(StructHeaderTcpProtocol):
             result = Result(True, faces=faces)
         utils.show_face_recognize_image(self.slot.address, data, result)
         return result.serializeBinary()
-    def encryptAndSend(self, data):
-        data = self.keys.encrypt(data)
-        self.send(data)
+    def faceUpload(self, data):
+        user_id = self.extraData.get('user_id')
+        if user_id is None:
+            return Result(False, error=ErrorCode.ERR_MISSING_PARAMETER).serializeBinary()
+        data = fu.decode_png(data)
+        result = fu.upload(data, user_id)
+        return result.serializeBinary()
     def send(self, data):
+        data = self.keys.encrypt(data)
+        data = Serializer.compress(data)
         length = len(data)
         header = struct.pack('>I', length)
         self.transport.write(header + data)
+    def processHeader(self, data):
+        data = msgpack.loads(data)
+        signature = data.get('signature')
+        if not signature:
+            self.send(Result(False, error=ErrorCode.ERR_NO_SIGNATURE_SPECIFIED).serializeBinary())
+            return
+        if not self.keys.verifySignature(signature, self.slot.secret):
+            self.send(Result(False, error=ErrorCode.ERR_SIGNATURE_MISMATCH).serializeBinary())
+            return
+        op = data.get('operation')
+        if not op:
+            self.send(Result(False, error=ErrorCode.ERR_MISSING_PARAMETER).serializeBinary())
+            return
+        if op == 'switch':
+            to = data.get('type').lower()
+            if to == self.type:
+                self.send(Result(False, error=ErrorCode.ERR_SAME_DATATYPE).serializeBinary())
+                return
+            if to == 'detect':
+                if not self.checkPermission('faceDetect'):
+                    self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                    return
+                if self.type == 'recognize':
+                    utils.close_recognize_image(self.slot.address)
+                self.type = 'detect'
+                self.handler = self.faceDetect
+                utils.prepare_detect_image(self.slot.address)
+            elif to == 'recognize':
+                if not self.checkPermission('faceRecognize'):
+                    self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                    return
+                if self.type == 'detect':
+                    utils.close_detect_image(self.slot.address)
+                self.type = 'recognize'
+                self.handler = self.faceRecognize
+                utils.prepare_recognize_image(self.slot.address)
+            elif to == 'upload':
+                if not self.checkPermission('faceUpload'):
+                    self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                    return
+                if self.type == 'detect':
+                    utils.close_detect_image(self.slot.address)
+                elif self.type == 'recognize':
+                    utils.close_recognize_image(self.slot.address)
+                self.type = 'upload'
+                self.handler = self.faceUpload
+                self.extraData['user_id'] = data.get('userid')
+            else:
+                self.send(Result(False, error=ErrorCode.ERR_INVALID_VALUE).serializeBinary())
+                return
+            self.send(Result(True).serializeBinary())
+            return
+        else:
+            self.send(Result(False, error=ErrorCode.ERR_INVALID_VALUE).serializeBinary())
     def handshake(self, data):
         data = msgpack.loads(data)
         signature = data.get('signature')
         if not signature:
-            self.send(Result(False, error='A signature must be provided.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_NO_SIGNATURE_SPECIFIED).serializeBinary())
             self.transport.loseConnection()
             return
-        signature = base64.b64decode(signature)
         if not self.keys.verifySignature(signature, self.slot.secret):
-            self.send(Result(False, error='Signature mismatch.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_SIGNATURE_MISMATCH).serializeBinary())
             self.transport.loseConnection()
             return
-        self.type = data.get('type')
+        self.type = data.get('type').lower()
         if not self.type:
-            self.send(Result(False, error='A data type must be provided.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_MISSING_PARAMETER).serializeBinary())
             self.transport.loseConnection()
             return
         if self.type == 'detect':
+            if not self.checkPermission('faceDetect'):
+                self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                self.transport.loseConnection()
+                return
             self.handler = self.faceDetect
             utils.prepare_detect_image(self.slot.address)
         elif self.type == 'recognize':
+            if not self.checkPermission('faceRecognition'):
+                self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                self.transport.loseConnection()
+                return
             self.handler = self.faceRecognize
             self.extraData['ids'], self.extraData['models'] = fu.load_models()
             utils.prepare_recognize_image(self.slot.address)
+        elif self.type == 'upload':
+            if not self.checkPermission('faceUpload'):
+                self.send(Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serializeBinary())
+                self.transport.loseConnection()
+                return
+            self.handler = self.faceUpload
+            self.extraData['user_id'] = data.get('userid')
         else:
-            self.send(Result(False, error='Invalid data type.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_INVALID_VALUE).serializeBinary())
             self.transport.loseConnection()
             return
         self.verified = True
@@ -404,7 +577,7 @@ class OccupiedTcpProtocol(Protocol):
     def __init__(self, slot):
         self.slot = slot
     def connectionMade(self):
-        data = Result(False, error='Server slot is occupied by another session.').serializeBytes()
+        data = Result(False, error=ErrorCode.ERR_OCCUPIED_SLOT).serializeBinary()
         length = len(data)
         header = struct.pack('>I', length)
         self.transport.write(header + data)
@@ -445,13 +618,13 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
         self.slot = ServerMethods.getTcpSlot(request.peer.split(':')[1])
         if self.slot.isOccupied():
             self.needsClose = True
-            self.closeMessage = Result(False, error='Server slot is being occupied by another session.').serializeBinary()
+            self.closeMessage = Result(False, error=ErrorCode.ERR_OCCUPIED_SLOT).serializeBinary()
         if not self.slot.canUseTcp():
             self.needsClose = True
-            self.closeMessage = Result(False, error='Client not authorized to use web sockets.').serializeBinary()
+            self.closeMessage = Result(False, error=ErrorCode.ERR_UNALLOCATED_SLOT).serializeBinary()
         if not self.slot.getSlotType() == SlotType.TSS_SENSITIVE_DATA:
             self.needsClose = True
-            self.closeMessage = Result(False, error='Incorrect server slot type.').serializeBinary()
+            self.closeMessage = Result(False, error=ErrorCode.ERR_INVALID_SLOT).serializeBinary()
     def onOpen(self):
         if self.needsClose:
             self.sendMessage(self.closeMessage, isBinary=True)
@@ -469,17 +642,16 @@ class SensitiveDataWebSocketProtocol(WebSocketServerProtocol):
         data = msgpack.loads(data)
         signature = data.get('signature')
         if not signature:
-            self.send(Result(False, error='A signature must be provided.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_NO_SIGNATURE_SPECIFIED).serializeBinary())
             self.transport.loseConnection()
             return
-        signature = base64.b64decode(signature)
         if not self.slot.eccKey.verifySignature(signature, self.slot.secret):
-            self.send(Result(False, error='Signature mismatch.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_SIGNATURE_MISMATCH).serializeBinary())
             self.transport.loseConnection()
             return
         datatype = data.get('type')
         if not datatype:
-            self.send(Result(False, error='A data type must be provided.').serializeBinary())
+            self.send(Result(False, error=ErrorCode.ERR_MISSING_PARAMETER).serializeBinary())
             self.transport.loseConnection()
             return
         if datatype == 'detect':

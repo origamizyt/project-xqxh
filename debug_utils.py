@@ -1,6 +1,16 @@
 import cv2
-from models import config
+from models import config, Result, Serializer
 from twisted.python import log
+from bottle import response
+
+class DebugMiddleware:
+    def __init__(self, func):
+        self.func = func
+    def __call__(self):
+        if config.server.debug:
+            return self.func()
+        response.status = 403
+        return ''
 
 class DebugFeature:
     def __init__(self, func):
