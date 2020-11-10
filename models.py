@@ -323,6 +323,7 @@ class ServerMethods:
         if addr not in self.addressMap: return None
         return self.addressMap[addr].permission.get(name)
     def verifyUser(self, addr, username, password_hmac):
+        if not self.userExists(username): return False
         return security.certify_hmac_digest(self.addressMap[addr].getHMacKey(), db.get_user_by_username(username).password.encode(), password_hmac)
     @staticmethod
     def getUserId(username):

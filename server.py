@@ -130,9 +130,10 @@ def user_operation():
         if not authenticate(): return response401()
         username = request.forms.username
         password_hmac = request.forms.password
+        password_hmac = methods.base64decode(password_hmac)
         if not methods.hasUserPermissionFor(client_addr(), username):
             return Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serialize()
-        return Result(True, result=methods.verifyUser(client_addr(), username, password)).serialize()
+        return Result(True, result=methods.verifyUser(client_addr(), username, password_hmac)).serialize()
     elif request.forms.type == 'query':
         if not authenticate(): return response401()
         username = request.forms.username
@@ -140,8 +141,6 @@ def user_operation():
         password_hmac = methods.base64decode(password_hmac)
         if not methods.hasUserPermissionFor(client_addr(), username):
             return Result(False, error=ErrorCode.ERR_PERMISSION_INSUFFICIENT).serialize()
-        if not methods.userExists(username):
-            return Result(False, error=ErrorCode.ERR_INCORRECT_USER).serialize()
         if not methods.verifyUser(client_addr(), username, password_hmac):
             return Result(False, error=ErrorCode.ERR_INCORRECT_USER).serialize()
         return Result(True, userid=methods.getUserId(username)).serialize()
