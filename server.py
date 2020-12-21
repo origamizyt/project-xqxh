@@ -57,7 +57,8 @@ def authenticate_client():
         return Result(False, error=ErrorCode.ERR_MISSING_PARAMETER).serialize()
     elif request.forms.type == 'dog':
         username = request.forms.username
-        password = request.forms.password
+        password_base64 = request.forms.password
+        password = methods.base64decode(password_base64)
         remote_key = bytes.fromhex(request.forms.ecckey)
         if methods.isUserNameOccupied(username):
             response.set_header('X-Authorization', 'failed')
@@ -79,7 +80,8 @@ def authenticate_client():
             ).serialize()
     elif request.forms.type == 'user':
         username = request.forms.username
-        password = request.forms.password
+        password_base64 = request.forms.password
+        password = methods.base64decode(password_base64)
         remote_key = bytes.fromhex(request.forms.ecckey)
         if methods.isUserNameOccupied(username):
             response.set_header('X-Authorization', 'failed')
@@ -115,7 +117,8 @@ def user_operation():
         ).serialize()
     elif request.forms.type == 'register':
         username = request.forms.username
-        password = request.forms.password
+        password_base64 = request.forms.password
+        password = methods.base64decode(password)
         if not methods.isValidUser(username, password):
             return Result(False,
                 error=ErrorCode.ERR_USER_INVALID

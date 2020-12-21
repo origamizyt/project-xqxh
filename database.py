@@ -4,6 +4,7 @@ import pymongo
 from bson.binary import Binary
 import mysql.connector as mysql
 from models import User, config, Serializer
+import base64
 
 MYSQL_HOST = config.mysql.host
 MYSQL_USER = config.mysql.user
@@ -99,6 +100,7 @@ def get_user(user_id):
     cursor.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
     result = cursor.fetchone()
     if result is None: return None
+    result['password'] = base64.b64decode(result['password'])
     return User(**result)
 
 def get_user_by_username(username):
@@ -107,6 +109,7 @@ def get_user_by_username(username):
     cursor.execute('SELECT * FROM users WHERE username = %s', (username,))
     result = cursor.fetchone()
     if result is None: return None
+    result['password'] = base64.b64decode(result['password'])
     return User(**result)
 
 def get_user_id(username):
@@ -135,7 +138,7 @@ def certify_dog(dog_name, password):
     cursor.execute('SELECT * FROM dogs WHERE dog_name = %s', (dog_name,))
     result = cursor.fetchone()
     if result is None: return False
-    return result['password'] == password
+    return base64.b64decode(result['password']) == password
 
 def get_dog(dog_name):
     client = get_mysql_client()
@@ -143,4 +146,4 @@ def get_dog(dog_name):
     cursor.execute('SELECT * FROM dogs WHERE dog_name = %s', (dog_name,))
     result = cursor.fetchone()
     if result is None: return None
-    return User(username=dog_name, password=result['password'])
+    return User(username=dog_name, password=base64.b64decode(result['password']))
